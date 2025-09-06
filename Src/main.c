@@ -67,13 +67,24 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
   if (huart->Instance == USART2)
   {
-    // Hacemos eco del caracter recibido
-    HAL_UART_Transmit(&huart2, &rx_data, 1, 10); // Enviar el byte recibido de vuelta
+    char response;
+
+    if (rx_data == 'A')
+    {
+      response = 'B';   // Si recibo 'A' respondo con 'B'
+    }
+    else
+    {
+      response = rx_data; // Si no respondo con lo mismo
+    }
+
+    HAL_UART_Transmit(&huart2, (uint8_t*)&response, 1, 10);
 
     // Volvemos a habilitar la interrupción de recepción UART para el próximo byte
     HAL_UART_Receive_IT(&huart2, &rx_data, 1);
   }
 }
+
 // Callback que se ejecuta cuando ocurre una interrupción externa (Botón B1)
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
@@ -127,7 +138,7 @@ int main(void)
   HAL_UART_Receive_IT(&huart2, &rx_data, 1);
 
   // Mensaje de bienvenida por UART
-  char *welcome_msg = "Sistema de Control Basico - !!!!!\r\n";
+  char *welcome_msg = "Sistema de Control Basico - Prueba!!!\r\n";
   HAL_UART_Transmit(&huart2, (uint8_t*)welcome_msg, strlen(welcome_msg), 100);
   /* USER CODE END 2 */
 
@@ -137,7 +148,7 @@ int main(void)
   {
      // ---- Heartbeat LED ----
     static uint32_t last_heartbeat_time = 0;
-    if (HAL_GetTick() - last_heartbeat_time >= 1000) // Cada 500 ms
+    if (HAL_GetTick() - last_heartbeat_time >= 2000) // Cada 500 ms
     {
       HAL_GPIO_TogglePin(LD2_GPIO_Port, LD2_Pin); // Cambia el estado del LED LD2
       last_heartbeat_time = HAL_GetTick();
@@ -146,14 +157,16 @@ int main(void)
     // ---- Procesamiento del Botón ----
     if (button_flag == 1)
     {
-      // 1. Encender LED Externo
+      // 1. Encender LED Externo y LD2
       HAL_GPIO_WritePin(LED_EXT_GPIO_Port, LED_EXT_Pin, GPIO_PIN_SET); // Enciende LED_EXT
+      HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET);         // Enciende LD2
 
+      
       // 2. Calcular cuándo apagarlo (3 segundos desde ahora)
       led_ext_off_time = HAL_GetTick() + 5000;
 
       // 3. Enviar mensaje por UART
-      sprintf(tx_buffer, "Boton B1 presionado! LED EXT ON. Prueba\r\n");
+      sprintf(tx_buffer, "Boton B1 presionado! LED EXT ON. Prueba!!!\r\n");
       HAL_UART_Transmit(&huart2, (uint8_t*)tx_buffer, strlen(tx_buffer), 100);
 
       // 4. Limpiar el flag
@@ -165,8 +178,11 @@ int main(void)
     // y ya hemos alcanzado o superado ese tiempo...
     if (led_ext_off_time != 0 && HAL_GetTick() >= led_ext_off_time)
     {
-      // 1. Apagar el LED
+
+      // 1. Apagar los LEDs
       HAL_GPIO_WritePin(LED_EXT_GPIO_Port, LED_EXT_Pin, GPIO_PIN_RESET); // Apaga LED_EXT
+      HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);         // Apaga LD2
+
 
       // 2. Enviar mensaje por UART (opcional)
       sprintf(tx_buffer, "LED EXT OFF (timeout). Prueba\r\n");
@@ -260,7 +276,8 @@ void Error_Handler(void)
   }
   /* USER CODE END Error_Handler_Debug */
 }
-#ifdef USE_FULL_ASSERT
+
+#ifdef  USE_FULL_ASSERT
 /**
   * @brief  Reports the name of the source file and the source line number
   *         where the assert_param error has occurred.
